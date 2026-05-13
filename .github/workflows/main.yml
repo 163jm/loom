@@ -22,7 +22,7 @@ jobs:
             asset_name: loom-linux-x86_64-gnu
 
           - target: aarch64-unknown-linux-gnu
-            os: ubuntu-22.04
+            os: ubuntu-24.04-arm
             artifact_name: loom
             asset_name: loom-linux-aarch64-gnu
 
@@ -41,7 +41,7 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install cross-compilation tools
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        if: matrix.target == 'aarch64-unknown-linux-gnu' && matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
@@ -64,7 +64,7 @@ jobs:
             ${{ runner.os }}-cargo-${{ matrix.target }}-
 
       - name: Configure cross linker for aarch64
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        if: matrix.target == 'aarch64-unknown-linux-gnu' && matrix.os == 'ubuntu-22.04'
         run: |
           mkdir -p .cargo
           cat >> .cargo/config.toml <<EOF
@@ -78,17 +78,19 @@ jobs:
 
       - name: Strip binary (linux)
         run: |
-          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ] && [ "${{ matrix.os }}" = "ubuntu-22.04" ]; then
             aarch64-linux-gnu-strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
           else
             strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
           fi
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Rename and upload artifact
+        run: |
+          cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} ${{ matrix.asset_name }}
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset_name }}
-          path: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+          path: ${{ matrix.asset_name }}
 
   release:
     name: Create Release
@@ -97,26 +99,23 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-
-      - name: Rename artifacts
-        run: |
-          mv artifacts/loom-linux-x86_64-gnu/loom       artifacts/loom-linux-x86_64-gnu
-          mv artifacts/loom-linux-aarch64-gnu/loom      artifacts/loom-linux-aarch64-gnu
-          mv artifacts/loom-linux-x86_64-musl/loom  artifacts/loom-linux-x86_64-musl
-          mv config.example.yaml artifacts/config.yaml
+          merge-multiple: true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.version }}              # 固定 Tag 名
+          tag_name: ${{ github.event.inputs.version }}
           name: loom ${{ github.event.inputs.version }}
           files: |
             artifacts/loom-linux-x86_64-gnu
             artifacts/loom-linux-aarch64-gnu
             artifacts/loom-linux-x86_64-musl
-            artifacts/config.yaml
+            config.example.yaml
           generate_release_notes: true
