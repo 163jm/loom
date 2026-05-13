@@ -33,12 +33,12 @@ impl Config {
 #[derive(Debug, Deserialize, Clone)]
 pub struct SslConfig {
     pub email: String,
-    pub cloudflare_api_token: String,
     pub certs: HashMap<String, CertEntry>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct CertEntry {
+    pub cloudflare_api_token: String,
     pub domains: Vec<String>,
     pub crt_path: String,
     pub key_path: String,
