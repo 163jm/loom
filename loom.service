@@ -1,0 +1,29 @@
+[Unit]
+Description=loom - TCP port forwarder, reverse proxy and SSL manager
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/loom -c /etc/loom/config.yaml
+Restart=on-failure
+RestartSec=5s
+
+# Logging goes to /tmp/loom.log as configured, stdout also captured by journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=loom
+
+# Allow binding privileged ports (80, 443)
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=no
+ProtectSystem=full
+ProtectHome=yes
+ReadWritePaths=/etc/loom /tmp
+
+[Install]
+WantedBy=multi-user.target
