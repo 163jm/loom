@@ -3,12 +3,12 @@ log_file: /tmp/loom.log
 
 SSL:
   email: you@example.com
-  cloudflare_api_token: your_cloudflare_api_token_here
   certs:
     cert1:
       domains:
         - example.com
         - "*.example.com"
+      cloudflare_api_token: your_cloudflare_api_token_here
       crt_path: /etc/loom/certs/example.crt
       key_path: /etc/loom/certs/example.key
 
