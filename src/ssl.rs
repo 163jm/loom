@@ -53,7 +53,8 @@ fn needs_renewal(crt_path: &str) -> Result<bool> {
     use x509_parser::prelude::*;
 
     let pem_data = std::fs::read(crt_path)?;
-    let pem = pem::parse(&pem_data).map_err(|e| anyhow!("PEM parse error: {}", e))?;
+    let (_, pem) = x509_parser::pem::parse_x509_pem(&pem_data)
+        .map_err(|e| anyhow!("PEM parse error: {}", e))?;
     let (_, cert) = X509Certificate::from_der(pem.contents())
         .map_err(|e| anyhow!("X509 parse error: {}", e))?;
 
