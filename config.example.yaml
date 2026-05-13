@@ -53,3 +53,15 @@ WebServices:
       front_web: internal.example.com
       backend_address: 127.0.0.1
       backend_port: 3000
+
+IPFilter:
+  enable: false
+  mode: white          # white = 白名单（只允许列表内IP）/ black = 黑名单（拒绝列表内IP）
+  range: both          # 作用范围：PortForward / WebServices / both
+  iplist_path: /etc/loom/ip.txt
+
+# ip.txt 格式示例（每行一条，支持单IP和CIDR，# 开头为注释）：
+# 192.168.1.0/24
+# 10.0.0.1
+# 2001:db8::/32
+# 172.16.0.100

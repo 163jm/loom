@@ -10,6 +10,9 @@ pub struct Config {
     #[serde(rename = "SSL")]
     pub ssl: Option<SslConfig>,
 
+    #[serde(rename = "IPFilter")]
+    pub ip_filter: Option<IpFilterConfig>,
+
     #[serde(rename = "PortForward")]
     pub port_forward: Option<HashMap<String, PortForwardServer>>,
 
@@ -39,6 +42,18 @@ pub struct CertEntry {
     pub domains: Vec<String>,
     pub crt_path: String,
     pub key_path: String,
+}
+
+// ── IPFilter ──────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct IpFilterConfig {
+    pub enable: bool,
+    /// "white" 或 "black"
+    pub mode: String,
+    /// "PortForward" / "WebServices" / "both"
+    pub range: String,
+    pub iplist_path: String,
 }
 
 // ── Port Forward ──────────────────────────────────────────────────────────────

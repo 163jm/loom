@@ -1,11 +1,13 @@
 use anyhow::Result;
+use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io;
 use tracing::{info, warn, error};
 
 use crate::config::PortForwardServer;
+use crate::ip_filter::IpFilter;
 
-pub async fn run(name: String, server: PortForwardServer) -> Result<()> {
+pub async fn run(name: String, server: PortForwardServer, filter: Arc<IpFilter>) -> Result<()> {
     let listen_addr = format!("0.0.0.0:{}", server.listen_port);
     let listener = TcpListener::bind(&listen_addr).await?;
     info!(
@@ -16,6 +18,14 @@ pub async fn run(name: String, server: PortForwardServer) -> Result<()> {
     loop {
         match listener.accept().await {
             Ok((inbound, peer)) => {
+                let peer_ip = peer.ip();
+
+                // IP 过滤检查
+                if !filter.is_allowed(&peer_ip) {
+                    warn!("PortForward [{}] blocked {} (IP filter)", name, peer_ip);
+                    continue; // 直接丢弃连接，不 spawn 任务
+                }
+
                 let target = format!("{}:{}", server.forward_address, server.forward_port);
                 let name = name.clone();
                 tokio::spawn(async move {

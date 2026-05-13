@@ -15,6 +15,7 @@ use tokio_rustls::TlsAcceptor;
 use tracing::{error, info, warn};
 
 use crate::config::{Config, SubRule, WebServer};
+use crate::ip_filter::IpFilter;
 
 // ── TLS helpers ───────────────────────────────────────────────────────────────
 
@@ -82,7 +83,7 @@ fn is_sub_rule_key(key: &str) -> bool {
 
 // ── HTTP-only redirect server (port 80) ──────────────────────────────────────
 
-async fn run_http_redirect(name: String) {
+async fn run_http_redirect(name: String, filter: Arc<IpFilter>) {
     let addr: SocketAddr = "0.0.0.0:80".parse().unwrap();
     let listener = match TcpListener::bind(addr).await {
         Ok(l) => l,
@@ -101,6 +102,13 @@ async fn run_http_redirect(name: String) {
                 continue;
             }
         };
+
+        // IP 过滤
+        if !filter.is_allowed(&peer.ip()) {
+            warn!("WebService [{}] redirect blocked {} (IP filter)", name, peer.ip());
+            continue;
+        }
+
         let name2 = name.clone();
         tokio::spawn(async move {
             let io = TokioIo::new(stream);
@@ -289,29 +297,30 @@ async fn handle_request(
 
 // ── Main entry point ──────────────────────────────────────────────────────────
 
-pub async fn run(name: String, server: WebServer, _cfg: Arc<Config>) -> Result<()> {
+pub async fn run(name: String, server: WebServer, _cfg: Arc<Config>, filter: Arc<IpFilter>) -> Result<()> {
     let routes = build_routes(&server);
 
     // If TLS is enabled on port 443, also spin up HTTP->HTTPS redirect on port 80
     if server.tls_enable && server.listen_port == 443 {
         let name2 = name.clone();
+        let filter2 = filter.clone();
         tokio::spawn(async move {
-            run_http_redirect(name2).await;
+            run_http_redirect(name2, filter2).await;
         });
     }
 
     let listen_addr: SocketAddr = format!("0.0.0.0:{}", server.listen_port).parse()?;
 
     if server.tls_enable {
-        run_tls(name, server, listen_addr, routes).await
+        run_tls(name, server, listen_addr, routes, filter).await
     } else {
-        run_plain(name, listen_addr, routes).await
+        run_plain(name, listen_addr, routes, filter).await
     }
 }
 
 // ── Plain HTTP ────────────────────────────────────────────────────────────────
 
-async fn run_plain(name: String, addr: SocketAddr, routes: RouteTable) -> Result<()> {
+async fn run_plain(name: String, addr: SocketAddr, routes: RouteTable, filter: Arc<IpFilter>) -> Result<()> {
     let listener = TcpListener::bind(addr).await?;
     info!("WebService [{}] listening on {} (plain HTTP)", name, addr);
 
@@ -323,6 +332,13 @@ async fn run_plain(name: String, addr: SocketAddr, routes: RouteTable) -> Result
                 continue;
             }
         };
+
+        // IP 过滤
+        if !filter.is_allowed(&peer.ip()) {
+            warn!("WebService [{}] blocked {} (IP filter)", name, peer.ip());
+            continue;
+        }
+
         let routes = routes.clone();
         let name2 = name.clone();
         tokio::spawn(async move {
@@ -351,6 +367,7 @@ async fn run_tls(
     server: WebServer,
     addr: SocketAddr,
     routes: RouteTable,
+    filter: Arc<IpFilter>,
 ) -> Result<()> {
     let crt = server
         .crt_path
@@ -386,6 +403,12 @@ async fn run_tls(
                 continue;
             }
         };
+
+        // IP 过滤（在 TLS 握手前就丢弃，节省资源）
+        if !filter.is_allowed(&peer.ip()) {
+            warn!("WebService [{}] blocked {} (IP filter)", name, peer.ip());
+            continue;
+        }
 
         let current_tls = tls_cfg.load();
         let acceptor = TlsAcceptor::from((**current_tls).clone());
