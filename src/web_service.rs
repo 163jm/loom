@@ -4,7 +4,7 @@ use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
 use hyper::body::Incoming;
 use hyper::service::service_fn;
-use hyper::{Method, Request, Response, StatusCode, Uri};
+use hyper::{Request, Response, StatusCode, Uri};
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use rustls::ServerConfig;
 use std::collections::HashMap;
@@ -14,7 +14,7 @@ use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 use tracing::{error, info, warn};
 
-use crate::config::{Config, SubRule, WebServer};
+use crate::config::{Config, WebServer};
 use crate::ip_filter::IpFilter;
 
 // ── TLS helpers ───────────────────────────────────────────────────────────────
@@ -111,6 +111,7 @@ async fn run_http_redirect(name: String, filter: Arc<IpFilter>) {
 
         let name2 = name.clone();
         tokio::spawn(async move {
+            let name_err = name2.clone();
             let io = TokioIo::new(stream);
             if let Err(e) = hyper::server::conn::http1::Builder::new()
                 .serve_connection(
@@ -122,7 +123,7 @@ async fn run_http_redirect(name: String, filter: Arc<IpFilter>) {
                 )
                 .await
             {
-                warn!("WebService redirect [{}] conn error from {}: {}", name2, peer, e);
+                warn!("WebService redirect [{}] conn error from {}: {}", name_err, peer, e);
             }
         });
     }
@@ -342,6 +343,7 @@ async fn run_plain(name: String, addr: SocketAddr, routes: RouteTable, filter: A
         let routes = routes.clone();
         let name2 = name.clone();
         tokio::spawn(async move {
+            let name_err = name2.clone();
             let io = TokioIo::new(stream);
             if let Err(e) = hyper::server::conn::http1::Builder::new()
                 .serve_connection(
@@ -354,7 +356,7 @@ async fn run_plain(name: String, addr: SocketAddr, routes: RouteTable, filter: A
                 )
                 .await
             {
-                warn!("WebService [{}] conn error from {}: {}", name2, peer, e);
+                warn!("WebService [{}] conn error from {}: {}", name_err, peer, e);
             }
         });
     }
@@ -416,10 +418,11 @@ async fn run_tls(
         let name2 = name.clone();
 
         tokio::spawn(async move {
+            let name_err = name2.clone();
             let tls_stream = match acceptor.accept(stream).await {
                 Ok(s) => s,
                 Err(e) => {
-                    warn!("WebService [{}] TLS accept error from {}: {}", name2, peer, e);
+                    warn!("WebService [{}] TLS accept error from {}: {}", name_err, peer, e);
                     return;
                 }
             };
@@ -435,7 +438,7 @@ async fn run_tls(
                 )
                 .await
             {
-                warn!("WebService [{}] TLS conn error from {}: {}", name2, peer, e);
+                warn!("WebService [{}] TLS conn error from {}: {}", name_err, peer, e);
             }
         });
     }
