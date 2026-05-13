@@ -31,11 +31,6 @@ jobs:
             artifact_name: loom
             asset_name: loom-linux-x86_64-musl
 
-          - target: aarch64-unknown-linux-musl
-            os: ubuntu-22.04
-            artifact_name: loom
-            asset_name: loom-linux-aarch64-musl
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -112,7 +107,6 @@ jobs:
           mv artifacts/loom-linux-x86_64-gnu/loom       artifacts/loom-linux-x86_64-gnu
           mv artifacts/loom-linux-aarch64-gnu/loom      artifacts/loom-linux-aarch64-gnu
           mv artifacts/loom-linux-x86_64-musl/loom  artifacts/loom-linux-x86_64-musl
-          mv artifacts/loom-linux-aarch64-musl/loom  artifacts/loom-linux-aarch64-musl
           mv config.example.yaml artifacts/config.yaml
 
       - name: Create GitHub Release
@@ -124,6 +118,5 @@ jobs:
             artifacts/loom-linux-x86_64-gnu
             artifacts/loom-linux-aarch64-gnu
             artifacts/loom-linux-x86_64-musl
-            artifacts/loom-linux-aarch64-musl
             artifacts/config.yaml
           generate_release_notes: true
