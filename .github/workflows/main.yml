@@ -2,6 +2,11 @@ name: Build and Release
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: '发布版本号 (例如: v1.0.0)'
+        required: true
+        default: 'v0.1.0'
 
 jobs:
   build:
@@ -14,17 +19,22 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-22.04
             artifact_name: loom
-            asset_name: loom-linux-x86_64
+            asset_name: loom-linux-x86_64-gnu
 
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-22.04
             artifact_name: loom
-            asset_name: loom-linux-aarch64
+            asset_name: loom-linux-aarch64-gnu
 
           - target: x86_64-unknown-linux-musl
             os: ubuntu-22.04
             artifact_name: loom
             asset_name: loom-linux-x86_64-musl
+
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-22.04
+            artifact_name: loom
+            asset_name: loom-linux-aarch64-musl
 
     steps:
       - name: Checkout
@@ -89,7 +99,6 @@ jobs:
     name: Create Release
     needs: build
     runs-on: ubuntu-22.04
-    if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
     steps:
@@ -100,15 +109,21 @@ jobs:
 
       - name: Rename artifacts
         run: |
-          mv artifacts/loom-linux-x86_64/loom       artifacts/loom-linux-x86_64
-          mv artifacts/loom-linux-aarch64/loom      artifacts/loom-linux-aarch64
+          mv artifacts/loom-linux-x86_64-gnu/loom       artifacts/loom-linux-x86_64-gnu
+          mv artifacts/loom-linux-aarch64-gnu/loom      artifacts/loom-linux-aarch64-gnu
           mv artifacts/loom-linux-x86_64-musl/loom  artifacts/loom-linux-x86_64-musl
+          mv artifacts/loom-linux-aarch64-musl/loom  artifacts/loom-linux-aarch64-musl
+          mv config.example.yaml artifacts/config.yaml
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.inputs.version }}              # 固定 Tag 名
+          name: loom ${{ github.event.inputs.version }}
           files: |
-            artifacts/loom-linux-x86_64
-            artifacts/loom-linux-aarch64
+            artifacts/loom-linux-x86_64-gnu
+            artifacts/loom-linux-aarch64-gnu
             artifacts/loom-linux-x86_64-musl
+            artifacts/loom-linux-aarch64-musl
+            artifacts/config.yaml
           generate_release_notes: true
