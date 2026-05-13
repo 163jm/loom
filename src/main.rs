@@ -23,6 +23,11 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // 必须在任何 rustls 操作之前安装加密 provider
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls ring provider");
+
     let args = Args::parse();
 
     let config = Config::load(&args.config)?;
