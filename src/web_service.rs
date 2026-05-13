@@ -159,6 +159,41 @@ async fn redirect_to_https(
     Ok(response)
 }
 
+async fn redirect_to_https_same_port(
+    req: Request<Incoming>,
+    port: u16,
+) -> Result<Response<Full<Bytes>>, hyper::Error> {
+    let host = req
+        .headers()
+        .get(hyper::header::HOST)
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("localhost");
+
+    // 去掉 Host 头里可能带的端口，再拼上当前端口
+    let bare_host = host.split(':').next().unwrap_or(host);
+    let host_with_port = if port == 443 {
+        bare_host.to_string()
+    } else {
+        format!("{}:{}", bare_host, port)
+    };
+
+    let path_and_query = req
+        .uri()
+        .path_and_query()
+        .map(|pq| pq.as_str())
+        .unwrap_or("/");
+
+    let redirect_url = format!("https://{}{}", host_with_port, path_and_query);
+
+    let response = Response::builder()
+        .status(StatusCode::MOVED_PERMANENTLY)
+        .header(hyper::header::LOCATION, redirect_url)
+        .body(Full::new(Bytes::new()))
+        .unwrap();
+
+    Ok(response)
+}
+
 // ── Proxy handler ─────────────────────────────────────────────────────────────
 
 async fn handle_request(
@@ -416,9 +451,41 @@ async fn run_tls(
         let acceptor = TlsAcceptor::from((**current_tls).clone());
         let routes = routes.clone();
         let name2 = name.clone();
+        let port = addr.port();
 
         tokio::spawn(async move {
             let name_err = name2.clone();
+
+            // 窥探第一个字节：TLS ClientHello 首字节是 0x16，HTTP 是 ASCII 字母
+            let mut first = [0u8; 1];
+            if let Err(e) = stream.peek(&mut first).await {
+                warn!("WebService [{}] peek error from {}: {}", name_err, peer, e);
+                return;
+            }
+
+            if first[0] != 0x16 {
+                // 明文 HTTP —— 返回 301 跳转到 https://
+                let io = TokioIo::new(stream);
+                if let Err(e) = hyper::server::conn::http1::Builder::new()
+                    .serve_connection(
+                        io,
+                        service_fn(move |req: Request<Incoming>| {
+                            let port = port;
+                            async move { redirect_to_https_same_port(req, port).await }
+                        }),
+                    )
+                    .await
+                {
+                    // 客户端发了非 HTTP 的明文数据，连接直接断开属正常情况，降级为 debug
+                    let msg = e.to_string();
+                    if !msg.contains("connection closed") && !msg.contains("incomplete") {
+                        warn!("WebService [{}] HTTP->HTTPS redirect error from {}: {}", name_err, peer, e);
+                    }
+                }
+                return;
+            }
+
+            // TLS 握手
             let tls_stream = match acceptor.accept(stream).await {
                 Ok(s) => s,
                 Err(e) => {
