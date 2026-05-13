@@ -117,5 +117,5 @@ jobs:
             artifacts/loom-linux-x86_64-gnu
             artifacts/loom-linux-aarch64-gnu
             artifacts/loom-linux-x86_64-musl
-            config.example.yaml
+            config.yaml
           generate_release_notes: true
