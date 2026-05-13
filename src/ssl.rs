@@ -102,7 +102,7 @@ async fn renew_cert(cfg: &SslConfig, entry: &CertEntry) -> Result<()> {
         };
 
         info!("Setting DNS TXT _acme-challenge.{} = {}", domain, digest);
-        set_cloudflare_txt(&cfg.cloudflare_api_token, &domain, &digest).await?;
+        set_cloudflare_txt(&entry.cloudflare_api_token, &domain, &digest).await?;
 
         info!("Waiting 30s for DNS propagation...");
         sleep(Duration::from_secs(30)).await;
@@ -159,7 +159,7 @@ async fn renew_cert(cfg: &SslConfig, entry: &CertEntry) -> Result<()> {
 
     // Clean up DNS TXT records
     for domain in &entry.domains {
-        if let Err(e) = delete_cloudflare_txt(&cfg.cloudflare_api_token, domain).await {
+        if let Err(e) = delete_cloudflare_txt(&entry.cloudflare_api_token, domain).await {
             warn!("Failed to clean up DNS TXT for {}: {}", domain, e);
         }
     }
