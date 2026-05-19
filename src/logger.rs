@@ -1,14 +1,10 @@
 use anyhow::Result;
-use tracing_subscriber::{fmt, EnvFilter, prelude::*};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 use crate::config::Config;
 
 pub fn init(config: &Config) -> Result<()> {
-    let level = config
-        .log_level
-        .as_deref()
-        .unwrap_or("info")
-        .to_string();
+    let level = config.log_level.as_deref().unwrap_or("info").to_string();
 
     let log_file = config
         .log_file
@@ -16,8 +12,7 @@ pub fn init(config: &Config) -> Result<()> {
         .unwrap_or("/tmp/loom.log")
         .to_string();
 
-    let env_filter = EnvFilter::try_new(&level)
-        .unwrap_or_else(|_| EnvFilter::new("info"));
+    let env_filter = EnvFilter::try_new(&level).unwrap_or_else(|_| EnvFilter::new("info"));
 
     // File appender (non-rolling, single file)
     let file_appender = tracing_appender::rolling::never(

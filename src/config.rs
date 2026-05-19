@@ -81,17 +81,16 @@ pub struct WebServer {
 impl<'de> serde::Deserialize<'de> for WebServer {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         use serde::de::Error;
-        let mut map: HashMap<String, serde_yaml::Value> =
-            HashMap::deserialize(deserializer)?;
+        let mut map: HashMap<String, serde_yaml::Value> = HashMap::deserialize(deserializer)?;
 
         let enable = map
             .remove("enable")
             .and_then(|v| v.as_bool())
             .ok_or_else(|| D::Error::missing_field("enable"))?;
-        let listen_port = map
-            .remove("listen_port")
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| D::Error::missing_field("listen_port"))? as u16;
+        let listen_port =
+            map.remove("listen_port")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| D::Error::missing_field("listen_port"))? as u16;
         let tls_enable = map
             .remove("tls_enable")
             .and_then(|v| v.as_bool())

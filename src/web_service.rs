@@ -28,8 +28,8 @@ fn load_tls_config(crt_path: &str, key_path: &str) -> Result<Arc<ServerConfig>> 
     let cert_file = File::open(crt_path)?;
     let key_file = File::open(key_path)?;
 
-    let cert_chain: Vec<CertificateDer<'static>> = certs(&mut BufReader::new(cert_file))
-        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let cert_chain: Vec<CertificateDer<'static>> =
+        certs(&mut BufReader::new(cert_file)).collect::<std::result::Result<Vec<_>, _>>()?;
 
     let key = private_key(&mut BufReader::new(key_file))?
         .ok_or_else(|| anyhow!("no private key found in {}", key_path))?;
@@ -88,11 +88,17 @@ async fn run_http_redirect(name: String, filter: Arc<IpFilter>) {
     let listener = match TcpListener::bind(addr).await {
         Ok(l) => l,
         Err(e) => {
-            error!("WebService [{}] failed to bind port 80 for redirect: {}", name, e);
+            error!(
+                "WebService [{}] failed to bind port 80 for redirect: {}",
+                name, e
+            );
             return;
         }
     };
-    info!("WebService [{}] HTTP->HTTPS redirect listening on :80", name);
+    info!(
+        "WebService [{}] HTTP->HTTPS redirect listening on :80",
+        name
+    );
 
     loop {
         let (stream, peer) = match listener.accept().await {
@@ -105,7 +111,11 @@ async fn run_http_redirect(name: String, filter: Arc<IpFilter>) {
 
         // IP 过滤
         if !filter.is_allowed(&peer.ip()) {
-            warn!("WebService [{}] redirect blocked {} (IP filter)", name, peer.ip());
+            warn!(
+                "WebService [{}] redirect blocked {} (IP filter)",
+                name,
+                peer.ip()
+            );
             continue;
         }
 
@@ -123,7 +133,10 @@ async fn run_http_redirect(name: String, filter: Arc<IpFilter>) {
                 )
                 .await
             {
-                warn!("WebService redirect [{}] conn error from {}: {}", name_err, peer, e);
+                warn!(
+                    "WebService redirect [{}] conn error from {}: {}",
+                    name_err, peer, e
+                );
             }
         });
     }
@@ -247,7 +260,10 @@ async fn handle_request(
     let uri: Uri = match backend_url.parse() {
         Ok(u) => u,
         Err(e) => {
-            error!("WebService [{}] bad backend URI {}: {}", server_name, backend_url, e);
+            error!(
+                "WebService [{}] bad backend URI {}: {}",
+                server_name, backend_url, e
+            );
             return Ok(Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                 .body(Full::new(Bytes::from("Bad backend URI")))
@@ -292,7 +308,10 @@ async fn handle_request(
     let (mut sender, conn) = match hyper::client::conn::http1::handshake(io).await {
         Ok(v) => v,
         Err(e) => {
-            error!("WebService [{}] backend handshake error: {}", server_name, e);
+            error!(
+                "WebService [{}] backend handshake error: {}",
+                server_name, e
+            );
             return Ok(Response::builder()
                 .status(StatusCode::BAD_GATEWAY)
                 .body(Full::new(Bytes::from("Backend handshake failed")))
@@ -312,7 +331,10 @@ async fn handle_request(
             let body_bytes = match body.collect().await {
                 Ok(b) => b.to_bytes(),
                 Err(e) => {
-                    error!("WebService [{}] failed to read backend response: {}", server_name, e);
+                    error!(
+                        "WebService [{}] failed to read backend response: {}",
+                        server_name, e
+                    );
                     return Ok(Response::builder()
                         .status(StatusCode::BAD_GATEWAY)
                         .body(Full::new(Bytes::from("Failed to read backend response")))
@@ -333,7 +355,12 @@ async fn handle_request(
 
 // ── Main entry point ──────────────────────────────────────────────────────────
 
-pub async fn run(name: String, server: WebServer, _cfg: Arc<Config>, filter: Arc<IpFilter>) -> Result<()> {
+pub async fn run(
+    name: String,
+    server: WebServer,
+    _cfg: Arc<Config>,
+    filter: Arc<IpFilter>,
+) -> Result<()> {
     let routes = build_routes(&server);
 
     // If TLS is enabled on port 443, also spin up HTTP->HTTPS redirect on port 80
@@ -356,7 +383,12 @@ pub async fn run(name: String, server: WebServer, _cfg: Arc<Config>, filter: Arc
 
 // ── Plain HTTP ────────────────────────────────────────────────────────────────
 
-async fn run_plain(name: String, addr: SocketAddr, routes: RouteTable, filter: Arc<IpFilter>) -> Result<()> {
+async fn run_plain(
+    name: String,
+    addr: SocketAddr,
+    routes: RouteTable,
+    filter: Arc<IpFilter>,
+) -> Result<()> {
     let listener = TcpListener::bind(addr).await?;
     info!("WebService [{}] listening on {} (plain HTTP)", name, addr);
 
@@ -479,7 +511,10 @@ async fn run_tls(
                     // 客户端发了非 HTTP 的明文数据，连接直接断开属正常情况，降级为 debug
                     let msg = e.to_string();
                     if !msg.contains("connection closed") && !msg.contains("incomplete") {
-                        warn!("WebService [{}] HTTP->HTTPS redirect error from {}: {}", name_err, peer, e);
+                        warn!(
+                            "WebService [{}] HTTP->HTTPS redirect error from {}: {}",
+                            name_err, peer, e
+                        );
                     }
                 }
                 return;
@@ -489,7 +524,10 @@ async fn run_tls(
             let tls_stream = match acceptor.accept(stream).await {
                 Ok(s) => s,
                 Err(e) => {
-                    warn!("WebService [{}] TLS accept error from {}: {}", name_err, peer, e);
+                    warn!(
+                        "WebService [{}] TLS accept error from {}: {}",
+                        name_err, peer, e
+                    );
                     return;
                 }
             };
@@ -505,7 +543,10 @@ async fn run_tls(
                 )
                 .await
             {
-                warn!("WebService [{}] TLS conn error from {}: {}", name_err, peer, e);
+                warn!(
+                    "WebService [{}] TLS conn error from {}: {}",
+                    name_err, peer, e
+                );
             }
         });
     }
@@ -528,7 +569,10 @@ async fn cert_reload_watcher(
         sleep(Duration::from_secs(60)).await; // check every minute
         let mtime = get_mtime(&crt);
         if mtime != last_mtime {
-            info!("WebService [{}] cert file changed, reloading TLS config...", name);
+            info!(
+                "WebService [{}] cert file changed, reloading TLS config...",
+                name
+            );
             match load_tls_config(&crt, &key) {
                 Ok(new_cfg) => {
                     tls_cfg.store(Arc::new(new_cfg));

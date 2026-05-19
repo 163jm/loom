@@ -1,21 +1,24 @@
 mod config;
 mod ip_filter;
-mod port_forward;
-mod web_service;
-mod ssl;
 mod logger;
+mod port_forward;
+mod ssl;
+mod web_service;
 
 use anyhow::Result;
 use clap::Parser;
 use std::sync::Arc;
 use tokio::signal;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 use config::Config;
 use ip_filter::IpFilter;
 
 #[derive(Parser, Debug)]
-#[command(name = "loom", about = "TCP port forwarder, reverse proxy and SSL manager")]
+#[command(
+    name = "loom",
+    about = "TCP port forwarder, reverse proxy and SSL manager"
+)]
 struct Args {
     #[arg(short = 'c', long = "config", help = "Path to config file")]
     config: String,
@@ -47,7 +50,7 @@ async fn main() -> Result<()> {
             let (apply_pf, apply_ws) = match range.as_str() {
                 "portforward" => (true, false),
                 "webservices" => (false, true),
-                "both"        => (true, true),
+                "both" => (true, true),
                 other => {
                     warn!(
                         "IPFilter.range '{}' unrecognized, defaulting to 'both'. \
@@ -59,8 +62,16 @@ async fn main() -> Result<()> {
             };
             let disabled = Arc::new(IpFilter::default()); // allow-all
             (
-                if apply_pf { filter.clone() } else { disabled.clone() },
-                if apply_ws { filter.clone() } else { disabled.clone() },
+                if apply_pf {
+                    filter.clone()
+                } else {
+                    disabled.clone()
+                },
+                if apply_ws {
+                    filter.clone()
+                } else {
+                    disabled.clone()
+                },
             )
         }
         None => {

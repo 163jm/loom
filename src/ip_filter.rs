@@ -19,12 +19,8 @@ impl IpEntry {
             IpEntry::Single(a) => a == ip,
             IpEntry::Cidr { base, mask, is_v6 } => {
                 let addr = match ip {
-                    IpAddr::V4(v4) if !is_v6 => {
-                        u32::from_be_bytes(v4.octets()) as u128
-                    }
-                    IpAddr::V6(v6) if *is_v6 => {
-                        u128::from_be_bytes(v6.octets())
-                    }
+                    IpAddr::V4(v4) if !is_v6 => u32::from_be_bytes(v4.octets()) as u128,
+                    IpAddr::V6(v6) if *is_v6 => u128::from_be_bytes(v6.octets()),
                     _ => return false,
                 };
                 (addr & mask) == *base
@@ -57,7 +53,11 @@ fn parse_entry(s: &str) -> Result<IpEntry> {
                 let base = (u32::from_be_bytes(v4.octets()) as u128)
                     & (!0u32 << (32 - prefix_len)) as u128;
                 let mask = (!0u32 << (32 - prefix_len)) as u128;
-                Ok(IpEntry::Cidr { base, mask, is_v6: false })
+                Ok(IpEntry::Cidr {
+                    base,
+                    mask,
+                    is_v6: false,
+                })
             }
             IpAddr::V6(v6) => {
                 if prefix_len > 128 {
@@ -70,7 +70,11 @@ fn parse_entry(s: &str) -> Result<IpEntry> {
                     !0u128 << (128 - prefix_len)
                 };
                 let base = addr & mask;
-                Ok(IpEntry::Cidr { base, mask, is_v6: true })
+                Ok(IpEntry::Cidr {
+                    base,
+                    mask,
+                    is_v6: true,
+                })
             }
         }
     } else {
@@ -105,7 +109,12 @@ impl IpFilter {
         let whitelist = match mode.as_str() {
             "white" => true,
             "black" => false,
-            other => return Err(anyhow!("IPFilter.mode must be 'white' or 'black', got '{}'", other)),
+            other => {
+                return Err(anyhow!(
+                    "IPFilter.mode must be 'white' or 'black', got '{}'",
+                    other
+                ))
+            }
         };
 
         let content = std::fs::read_to_string(&cfg.iplist_path)
@@ -119,7 +128,12 @@ impl IpFilter {
             }
             match parse_entry(line) {
                 Ok(entry) => entries.push(entry),
-                Err(e) => warn!("IPFilter: skipping line {} ('{}') — {}", lineno + 1, line, e),
+                Err(e) => warn!(
+                    "IPFilter: skipping line {} ('{}') — {}",
+                    lineno + 1,
+                    line,
+                    e
+                ),
             }
         }
 
@@ -130,7 +144,11 @@ impl IpFilter {
             cfg.iplist_path
         );
 
-        Ok(Arc::new(IpFilter { enabled: true, whitelist, entries }))
+        Ok(Arc::new(IpFilter {
+            enabled: true,
+            whitelist,
+            entries,
+        }))
     }
 
     /// 判断某个 IP 是否被允许通过
@@ -140,9 +158,9 @@ impl IpFilter {
         }
         let matched = self.entries.iter().any(|e| e.matches(ip));
         if self.whitelist {
-            matched        // 白名单：命中才放行
+            matched // 白名单：命中才放行
         } else {
-            !matched       // 黑名单：命中则拒绝
+            !matched // 黑名单：命中则拒绝
         }
     }
 }
